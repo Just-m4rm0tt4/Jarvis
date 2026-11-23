@@ -1,6 +1,6 @@
-# JARVIS-6 — local voice assistant for RTX 3050 6GB / Ryzen 5 7235HS
+# JARVIS-6 — configurazione locale italiana per Windows 11
 audio:
-  input_device: 1        # null = system default
+  input_device: null     # microfono predefinito di Windows
   sample_rate: 16000
   frame_ms: 20
   vad_aggressiveness: 2       # webrtc fallback only
@@ -23,7 +23,7 @@ wakeword:
 
 speaker_id:
   enabled: true
-  owner_name: "Kunal"
+  owner_name: "Edoardo"
   voiceprint_path: data/voiceprint.json
   threshold: 0.75             # general recognition ("that's you")
   privileged_threshold: 0.82  # required for shutdown / personal files / shell
@@ -34,25 +34,28 @@ stt:
   model: small              # ~1.5 GB VRAM with int8_float16
   device: cpu
   compute_type: int8
-  language: null                 # null = auto-detect English / Hindi / Hinglish
+  language: it                   # riconoscimento vocale in italiano
   first_partial_routing: true   # dispatch partials to the LLM early
 
 llm:
-  backend: gemini           # gemini | ollama
-  api_key_env: GEMINI_API_KEY
-  model: gemini-2.5-flash   # stable Gemini model; change to another API-supported model if desired
+  backend: ollama           # inferenza locale, nessuna chiave API
+  base_url: http://127.0.0.1:11434
+  model: qwen3:4b
+  vision_model: qwen3-vl:4b
   temperature: 0.4
   max_output_tokens: 1024
-  timeout_seconds: 90
-  # Optional local fallback:
-  # base_url: http://127.0.0.1:11434
-  # num_ctx: 4096
-  # num_gpu_layers: 999
+  timeout_seconds: 180
+  num_ctx: 4096
+  num_gpu_layers: 999
+  think: false
+  keep_alive: 90s
+  vision_keep_alive: 0
 
 tts:
   engine: kokoro            # Kokoro-82M ONNX, <0.5 GB VRAM
-  voice: af_heart
-  speed: 1.05
+  voice: if_sara
+  speed: 1.0
+  language: it
   model_path: models/kokoro-v1.0.onnx
   voices_path: models/voices-v1.0.bin
   sentence_streaming: true
@@ -81,7 +84,7 @@ tools:
     timeout_ms: 15000
   vision:
     enabled: true
-    model: gemini-2.5-flash
+    model: qwen3-vl:4b
     screenshot_path: data/screen.png
 
 safety:
@@ -114,10 +117,10 @@ safety:
     - homeassistant.call_service
 
 compute:
-  # Gemini reasoning is cloud-side; local GPU is reserved for speech recognition.
-  cpu: [silero_vad, wakeword_cnn, kokoro_tts, speaker_encoder, browser]
-  gpu: [faster_whisper_int8]
-  reserved_vram_gb: 1.5
+  # Inferenza Qwen locale gestita da Ollama.
+  cpu: [silero_vad, wakeword_cnn, kokoro_tts, speaker_encoder, browser, faster_whisper_int8]
+  gpu: [ollama_qwen3, ollama_qwen3_vl]
+  reserved_vram_gb: 2.0
 
 audit:
   enabled: true
@@ -126,7 +129,7 @@ audit:
 
 metrics:
   log_path: data/metrics.jsonl
-  vram_ceiling_gb: 6.0
+  vram_ceiling_gb: 8.0
   sample_seconds: 5
 
 rag:
@@ -143,8 +146,8 @@ proactive:
   enabled: true
   jobs_path: data/jobs.json
   routines:                    # spoken automatically, no wake word needed
-    "08:15": "Morning. Say 'jarvis, brief me' whenever you're ready for the day's rundown."
-    "23:30": "It's half eleven — want me to shut the machine down?"
+    "08:15": "Buongiorno. Quando vuoi, chiedimi il riepilogo della giornata."
+    "23:30": "Sono le undici e mezza. Vuoi che prepari lo spegnimento del computer?"
 
 learning:
   enabled: true

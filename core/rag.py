@@ -1,9 +1,9 @@
-"""Local document RAG: index the operator's folders so Jarvis can answer from files.
-
-CPU-only embeddings (all-MiniLM-L6-v2, ~90 MB RAM) so the 6 GB card stays free
-for Whisper + Llama. Chunks land in the same Chroma store as archival memory.
-"""
-import hashlib, os, time
+"""Local document retrieval using SQLite keyword search; no vector DB or model download."""
+import hashlib
+import os
+import re
+import sqlite3
+import time
 from typing import List
 
 from core.bus import BUS
@@ -19,61 +19,77 @@ def _chunks(text: str, size: int = 900, overlap: int = 120) -> List[str]:
     return out
 
 
+def _terms(value: str):
+    return list(dict.fromkeys(re.findall(r"[^\\W_]+", (value or "").casefold(), flags=re.UNICODE)))[:12]
+
+
 class DocRAG:
     def __init__(self, cfg: dict):
         r = cfg.get("rag", {})
         self.roots = r.get("roots", [])
-        self.top_k = r.get("top_k", 5)
-        self.max_mb = r.get("max_file_mb", 2)
-        self.col = None
-        self.embed = None
-        try:
-            import chromadb
-            from sentence_transformers import SentenceTransformer
-            self.col = chromadb.PersistentClient(
-                path=cfg["memory"]["db_path"]).get_or_create_collection("documents")
-            self.embed = SentenceTransformer(r.get("embed_model", "all-MiniLM-L6-v2"), device="cpu")
-        except Exception as e:
-            BUS.emit("rag", f"document RAG disabled: {e}")
+        self.top_k = int(r.get("top_k", 5))
+        self.max_mb = float(r.get("max_file_mb", 2))
+        db_path = r.get("db_path", "data/rag.sqlite3")
+        os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
+        self.db = sqlite3.connect(db_path, check_same_thread=False)
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY, path TEXT NOT NULL, chunk INTEGER NOT NULL, content TEXT NOT NULL)"
+        )
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_documents_path ON documents(path)")
+        self.db.commit()
+        BUS.emit("rag", "SQLite document index ready (keyword retrieval; no embedding model required)")
 
     def available(self) -> bool:
-        return self.col is not None and self.embed is not None
+        return self.db is not None
 
     def index(self, roots: List[str] | None = None) -> int:
-        if not self.available():
-            return 0
         n, t0 = 0, time.time()
-        for root in (roots or self.roots):
+        for root in (roots if roots is not None else self.roots):
             root = os.path.expandvars(os.path.expanduser(root))
-            for dirpath, _dirs, files in os.walk(root):
-                if any(p in dirpath for p in (".git", "node_modules", "__pycache__", "venv")):
-                    continue
-                for f in files:
-                    p = os.path.join(dirpath, f)
-                    if os.path.splitext(f)[1].lower() not in TEXT_EXT:
+            if not os.path.isdir(root):
+                continue
+            for dirpath, dirs, files in os.walk(root):
+                dirs[:] = [d for d in dirs if d not in {".git", "node_modules", "__pycache__", "venv", ".venv"}]
+                for filename in files:
+                    path = os.path.join(dirpath, filename)
+                    if os.path.splitext(filename)[1].lower() not in TEXT_EXT:
                         continue
                     try:
-                        if os.path.getsize(p) > self.max_mb * 1024 * 1024:
+                        if os.path.getsize(path) > self.max_mb * 1024 * 1024:
                             continue
-                        text = open(p, encoding="utf-8", errors="ignore").read()
+                        with open(path, encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
                     except OSError:
                         continue
-                    for i, ch in enumerate(_chunks(text)):
-                        cid = hashlib.sha1(f"{p}:{i}".encode()).hexdigest()
-                        self.col.upsert(ids=[cid],
-                                        documents=[ch],
-                                        embeddings=[self.embed.encode(ch).tolist()],
-                                        metadatas=[{"path": p, "chunk": i}])
+
+                    self.db.execute("DELETE FROM documents WHERE path=?", (path,))
+                    for i, chunk in enumerate(_chunks(content)):
+                        chunk_id = hashlib.sha1(f"{path}:{i}".encode("utf-8")).hexdigest()
+                        self.db.execute(
+                            "INSERT OR REPLACE INTO documents(id, path, chunk, content) VALUES(?,?,?,?)",
+                            (chunk_id, path, i, chunk),
+                        )
                         n += 1
+        self.db.commit()
         BUS.emit("rag", f"indexed {n} chunks in {time.time() - t0:.1f}s")
         return n
 
     def search(self, query: str, k: int | None = None):
-        if not self.available():
+        terms = _terms(query)
+        if not terms:
             return []
-        res = self.col.query(query_embeddings=[self.embed.encode(query).tolist()],
-                             n_results=k or self.top_k)
-        hits = [{"text": d, "path": m.get("path", "?")}
-                for d, m in zip(res["documents"][0], res["metadatas"][0])]
+        where = " OR ".join("lower(content) LIKE ?" for _ in terms)
+        rows = self.db.execute(
+            f"SELECT path, content FROM documents WHERE {where} LIMIT 500",
+            tuple(f"%{term}%" for term in terms),
+        ).fetchall()
+        ranked = []
+        for path, content in rows:
+            folded = content.casefold()
+            score = sum(folded.count(term) for term in terms)
+            if score:
+                ranked.append((score, path, content))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        hits = [{"text": content, "path": path} for _score, path, content in ranked[:(k or self.top_k)]]
         BUS.emit("rag", f"doc_search('{query[:32]}') → {len(hits)} chunks")
         return hits

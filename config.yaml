@@ -3,18 +3,18 @@ audio:
   input_device: null     # microfono predefinito di Windows
   sample_rate: 16000
   frame_ms: 20
-  vad_aggressiveness: 2       # webrtc fallback only
+  vad_aggressiveness: 2       # WebRTC fallback
   vad_threshold: 0.5          # Silero VAD speech probability (CPU / ONNX)
   silence_ms_to_endpoint: 550
 
 wakeword:
   enabled: true
-  always_on: true             # armed 24/7, including while Jarvis is speaking (barge-in)
-  model: "hey_jarvis"         # built-in openWakeWord INT8 CNN — fires on "jarvis" / "hey jarvis"
-  custom_model_path: null     # e.g. models/jarvis.onnx after training/train_wakeword.py
+  always_on: true
+  model: "hey_jarvis"
+  custom_model_path: null
   threshold: 0.5
-  vad_gate: 0.3               # Silero pre-gate: kills false positives from TV / typing
-  follow_up_seconds: 8        # keep listening this long after a reply — no wake word needed
+  vad_gate: 0.3
+  follow_up_seconds: 8
   manual_button: true
   clap_to_wake: true
   clap_min_gap_ms: 120
@@ -25,20 +25,20 @@ speaker_id:
   enabled: true
   owner_name: "Edoardo"
   voiceprint_path: data/voiceprint.json
-  threshold: 0.75             # general recognition ("that's you")
-  privileged_threshold: 0.82  # required for shutdown / personal files / shell
+  threshold: 0.75
+  privileged_threshold: 0.82
   enroll_clips: 8
 
 stt:
   engine: faster-whisper
-  model: small              # ~1.5 GB VRAM with int8_float16
+  model: small
   device: cpu
   compute_type: int8
-  language: it                   # riconoscimento vocale in italiano
-  first_partial_routing: true   # dispatch partials to the LLM early
+  language: it
+  first_partial_routing: true
 
 llm:
-  backend: ollama           # inferenza locale, nessuna chiave API
+  backend: ollama
   base_url: http://127.0.0.1:11434
   model: qwen3:4b
   vision_model: qwen3-vl:4b
@@ -52,7 +52,7 @@ llm:
   vision_keep_alive: 0
 
 tts:
-  engine: kokoro            # Kokoro-82M ONNX, <0.5 GB VRAM
+  engine: kokoro
   voice: if_sara
   speed: 1.0
   language: it
@@ -61,7 +61,6 @@ tts:
   sentence_streaming: true
 
 memory:
-  db_path: data/chroma
   core_blocks_path: data/core_memory.json
   recall_path: data/recall.sqlite3
   archival_top_k: 4
@@ -88,8 +87,6 @@ tools:
     screenshot_path: data/screen.png
 
 safety:
-  # any tool listed here pauses and waits for a spoken "yes"
-  # owner_only tools are refused outright unless the live voice matches the voiceprint
   owner_only:
     - system.power
     - system.kill
@@ -117,7 +114,6 @@ safety:
     - homeassistant.call_service
 
 compute:
-  # Inferenza Qwen locale gestita da Ollama.
   cpu: [silero_vad, wakeword_cnn, kokoro_tts, speaker_encoder, browser, faster_whisper_int8]
   gpu: [ollama_qwen3, ollama_qwen3_vl]
   reserved_vram_gb: 2.0
@@ -134,8 +130,8 @@ metrics:
 
 rag:
   enabled: true
-  index_on_start: false        # set true to scan on every launch
-  embed_model: all-MiniLM-L6-v2   # CPU, ~90 MB RAM — keeps VRAM free
+  db_path: data/rag.sqlite3
+  index_on_start: false
   top_k: 5
   max_file_mb: 2
   roots:
@@ -145,7 +141,7 @@ rag:
 proactive:
   enabled: true
   jobs_path: data/jobs.json
-  routines:                    # spoken automatically, no wake word needed
+  routines:
     "08:15": "Buongiorno. Quando vuoi, chiedimi il riepilogo della giornata."
     "23:30": "Sono le undici e mezza. Vuoi che prepari lo spegnimento del computer?"
 

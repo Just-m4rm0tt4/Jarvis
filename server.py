@@ -22,7 +22,15 @@ def index():
 
 @app.get("/api/config")
 def config():
-    return {"llm": CFG["llm"]["model"], "stt": CFG["stt"]["model"], "tts": CFG["tts"]["engine"]}
+    return {
+        "backend": CFG["llm"].get("backend", "ollama"),
+        "llm": CFG["llm"].get("model", "qwen3:4b"),
+        "vision": CFG.get("tools", {}).get("vision", {}).get("model", "qwen3-vl:4b"),
+        "stt": CFG["stt"].get("model", "small"),
+        "language": CFG["stt"].get("language", "it"),
+        "tts": CFG["tts"].get("engine", "kokoro"),
+        "voice": CFG["tts"].get("voice", "if_sara"),
+    }
 
 @app.get("/api/audit")
 def audit():

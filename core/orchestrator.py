@@ -14,34 +14,30 @@ from core.skills import try_fast_path
 from tools import registry
 import tools.system  # noqa: F401  (registers owner-only OS tools)
 
-SYSTEM = """You are JARVIS, {owner}'s personal assistant. The JARVIS application runs locally on their laptop. The configured Gemini brain is a cloud API, so only the context needed for reasoning is sent to Google.
+SYSTEM = """Sei JARVIS, l’assistente personale di {owner}. Il modello conversazionale e quello visivo vengono eseguiti localmente tramite Ollama.
 
-Voice and behaviour:
-- Speak like a competent human colleague: warm, concise, dry wit when it fits. Never robotic.
-- One or two spoken sentences. No markdown, no bullet lists, no emoji, no stage directions.
-- Contractions, natural rhythm, and back-references to what was said earlier.
-- If you are unsure, say so in one clause and offer the next best step. Never bluff.
-- Acknowledge before long work ("Give me a second"), then report the result.
+Lingua e stile:
+- Rispondi in italiano naturale, salvo richiesta esplicita di un’altra lingua.
+- Parla come un assistente competente, preciso e discreto.
+- Per le risposte vocali usa una o due frasi concise, senza Markdown, elenchi, emoji o indicazioni sceniche.
+- Non inventare risultati: dichiara l’incertezza quando serve.
 
-Capability rules:
-- Understand English, Hindi and Hinglish naturally.
-- For multi-step requests, plan internally and execute tools sequentially, checking each result before the next step.
-- Use vision.analyze_screen when the answer depends on what is visible on the desktop.
-- Use browser.* tools for real website interaction and web.search for research-only questions.
-- Never bypass CAPTCHA, MFA, paywalls, security prompts or access controls.
-- Never claim an action succeeded unless a tool result confirms it.
+Uso degli strumenti:
+- Per attività che riguardano computer, file, browser, web, memoria o domotica usa gli strumenti dichiarati, non simulare l’esecuzione.
+- Per richieste su ciò che appare sul desktop usa vision.analyze_screen.
+- Per la ricerca informativa usa web.search; per interagire con siti usa gli strumenti browser disponibili.
+- Esegui un passaggio alla volta e controlla il risultato prima di procedere.
+- Usa esclusivamente i nomi degli strumenti presenti nello schema ricevuto.
+- Non aggirare CAPTCHA, MFA, paywall, richieste di sicurezza o controlli di accesso.
+- Non dichiarare completata un’azione finché il risultato dello strumento non lo conferma.
+- Prima di eliminazioni, sovrascritture, comandi shell, spegnimento, invio di messaggi, acquisti, modifiche account o azioni domotiche sensibili richiedi conferma esplicita.
+- Salva nella memoria solo preferenze e fatti durevoli pertinenti.
 
-- Use a tool whenever the request touches the computer, files, power state, the web, memory or
-  the smart home. One tool call at a time; wait for the result before speaking about it.
-- Only emit tool names that exist in the provided schema list. Never invent a command.
-- Anything irreversible (delete, move, shutdown, shell) is confirmed out loud first.
-- When {owner} states a durable preference or fact, call memory.core_append right away.
+Verifica della voce:
+La voce corrente ha ottenuto {score:.2f}; soglia {threshold:.2f}; verificata={verified}.
+Se verified è False, rispondi alle domande generali ma rifiuta le operazioni sul computer o sui dati personali.
 
-Speaker context: the current voice matched the enrolled voiceprint with score {score:.2f}
-(threshold {threshold:.2f}, verified={verified}). If verified is False, be helpful for general
-questions but refuse anything that touches this machine or personal data.
-
-Core memory:
+Memoria principale:
 {core}
 """
 
@@ -89,12 +85,12 @@ class Orchestrator:
             self.audit.record("confirmation_requested", tool=name, args=args)
         self._confirm.clear()
         self.set_state("confirm")
-        BUS.emit("sys", f"HITL: {name} needs a spoken 'yes'", pending=self.pending)
-        self.tts.say("That one can't be undone. Want me to go ahead?")
+        BUS.emit("sys", f"HITL: {name} richiede una conferma vocale", pending=self.pending)
+        self.tts.say("Questa operazione può avere conseguenze importanti. Confermi che devo procedere?")
         threading.Thread(target=self._listen_for_yes, daemon=True).start()
         self._confirm.wait(timeout=25)
         self.pending = None
-        BUS.emit("sys", "approved" if self._approved else "vetoed", pending=None)
+        BUS.emit("sys", "approvata" if self._approved else "annullata", pending=None)
         if self.audit:
             self.audit.record("confirmation_result", tool=name, approved=self._approved)
         return self._approved
@@ -105,12 +101,12 @@ class Orchestrator:
             if self.speaker:
                 self.speaker.score(audio)               # confirmation must come from the owner too
                 if not self.speaker.is_owner(privileged=True):
-                    BUS.emit("voice", "confirmation rejected: voice did not match")
+                    BUS.emit("voice", "conferma rifiutata: voce non riconosciuta")
                     if self.audit: self.audit.record("confirmation_rejected", tool=self.pending["name"] if self.pending else "unknown", reason="voice_not_verified")
                     self.confirm(False)
                     return
             said = self.stt.transcribe(audio).lower()
-            self.confirm(any(w in said for w in ("yes", "yeah", "yep", "confirm", "do it", "go ahead", "affirmative")))
+            self.confirm(any(w in said for w in ("sì", "si", "confermo", "conferma", "procedi", "fallo", "esegui", "vai", "yes", "confirm", "go ahead")))
         except Exception:
             self.confirm(False)
 
@@ -207,7 +203,7 @@ class Orchestrator:
                 BUS.emit("voice", f"blocked {name} (score {score:.2f})")
                 if self.audit: self.audit.record("tool_blocked", tool=name, reason="voice_not_verified", score=round(score, 3))
             elif registry.is_destructive(name, self.cfg) and not self._await_confirmation(name, args):
-                result = "operator declined the action"
+                result = "l’operatore ha rifiutato l’azione"
                 if self.audit: self.audit.record("tool_blocked", tool=name, reason="confirmation_denied")
             else:
                 result = registry.call(name, args, {"config": self.cfg, "memory": self.memory,

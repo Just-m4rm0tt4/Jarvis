@@ -72,6 +72,6 @@ class SpeakerID:
 
     def is_owner(self, privileged: bool = False) -> bool:
         if not self.enabled or self.reference is None:
-            return True
+            return False
         need = self.privileged_threshold if privileged else self.threshold
         return self.last_score >= need

@@ -56,7 +56,7 @@ def full():
     import tools.vision     # noqa: F401
 
     cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
-    print("· loading local speech models + Gemini agent tools…")
+    print("· caricamento modelli vocali locali e strumenti Ollama…")
     tts = TTS(cfg)
     rag = DocRAG(cfg)
     learning = Learning(cfg)

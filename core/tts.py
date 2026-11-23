@@ -24,7 +24,7 @@ class TTS:
         if not text.strip():
             return
         samples, rate = self.engine.create(
-            text, voice=self.cfg["voice"], speed=self.cfg["speed"], lang="en-us"
+            text, voice=self.cfg["voice"], speed=self.cfg["speed"], lang=self.cfg.get("language", "it")
         )
         BUS.emit("tts", f'speaking "{text[:60]}"')
         for i in range(0, len(samples), 1024):

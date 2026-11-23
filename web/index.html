@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>JARVIS-6 · Local Console</title>
+<title>JARVIS-6 · Console locale</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#0b1016;--pan:#101821cc;--bd:#1e3a4a;--cy:#4de3ff;--am:#ffbf43;--mut:#8fa7b6}
@@ -40,33 +40,33 @@
 </head>
 <body>
 <header>
-  <div><div class="mono">local-first · Gemini cloud reasoning</div><h1>JARVIS-6 Orchestration Console</h1>
-  <div class="sub">Local voice stack · faster-whisper STT → Gemini tool brain → Kokoro TTS</div></div>
+  <div><div class="mono">locale · ragionamento con Ollama</div><h1>JARVIS-6 · Console di orchestrazione</h1>
+  <div class="sub">Voce locale · Faster-Whisper → Ollama/Qwen → Kokoro</div></div>
   <div class="mono" id="conn">ws: connecting…</div>
 </header>
 <div class="grid">
   <section class="panel">
-    <h2>vram budget</h2>
+    <h2>modelli locali</h2>
     <div id="vram"></div>
   </section>
   <section class="panel">
     <div id="orb"></div>
-    <div style="display:flex;justify-content:center;gap:8px;align-items:center;margin:8px 0"><button id="wakeBtn">WAKE JARVIS</button><span class="mono">or double-clap</span></div><div class="state" id="state">idle</div>
-    <div class="bubble"><div class="mono">operator</div><div id="user">—</div></div>
+    <div style="display:flex;justify-content:center;gap:8px;align-items:center;margin:8px 0"><button id="wakeBtn">ATTIVA JARVIS</button><span class="mono">oppure doppio battito</span></div><div class="state" id="state">idle</div>
+    <div class="bubble"><div class="mono">operatore</div><div id="user">—</div></div>
     <div class="bubble"><div class="mono" style="color:var(--cy)">jarvis</div><div id="assistant">—</div></div>
     <div class="panel" id="confirm">
-      <h2 style="color:#ff5a6e">human-in-the-loop</h2>
+      <h2 style="color:#ff5a6e">conferma operazione</h2>
       <div class="mono" id="pending"></div>
-      <div class="mono" style="margin-top:8px;color:#ff5a6e">auto-veto in <span id="countdown">25</span>s</div>
-      <div style="margin-top:10px"><button onclick="decide('yes')">approve</button>
-      <button onclick="decide('no')">veto</button></div>
+      <div class="mono" style="margin-top:8px;color:#ff5a6e">annullamento automatico tra <span id="countdown">25</span>s</div>
+      <div style="margin-top:10px"><button onclick="decide('yes')">conferma</button>
+      <button onclick="decide('no')">annulla</button></div>
     </div>
   </section>
   <section>
-    <div class="panel"><h2>autonomy layer</h2>
-      <div class="row"><span>fast-path skill</span><span class="mono" id="v-skill">—</span></div>
-      <div class="row"><span>proactive queue</span><span class="mono" id="v-pro">idle</span></div>
-      <div class="row"><span>document rag</span><span class="mono" id="v-rag">—</span></div>
+    <div class="panel"><h2>livello operativo</h2>
+      <div class="row"><span>comando rapido</span><span class="mono" id="v-skill">—</span></div>
+      <div class="row"><span>attività programmate</span><span class="mono" id="v-pro">idle</span></div>
+      <div class="row"><span>memoria documentale</span><span class="mono" id="v-rag">—</span></div>
       <div class="row"><span>speaker</span><span class="mono" id="v-spk">—</span></div>
       <div class="row" style="margin-top:8px"><span>dpo pairs collected</span><span class="mono" id="v-learn">0 / 200</span></div>
       <div class="bar"><i id="v-learnbar" style="width:0%;background:var(--am)"></i></div>
@@ -76,25 +76,22 @@
         <span class="tag" id="t-tts">tts</span><span class="tag" id="t-browser">browser</span><span class="tag" id="t-vision">vision</span><span class="tag" id="t-learn">learn</span>
       </div>
     </div>
-    <div class="panel" style="margin-top:16px"><h2>pipeline trace</h2><div id="log"></div></div>
+    <div class="panel" style="margin-top:16px"><h2>attività in tempo reale</h2><div id="log"></div></div>
     <div class="panel" style="margin-top:16px">
-      <h2>audit trail</h2>
+      <h2>registro attività</h2>
       <div class="row"><span>records</span><span class="mono" id="audit-count">0</span></div>
       <div id="audit-list" class="mono" style="max-height:220px;overflow:auto;margin-top:10px"></div>
-      <button id="audit-export" style="margin-top:12px">export audit log</button>
+      <button id="audit-export" style="margin-top:12px">esporta registro</button>
     </div>
   </section>
 </div>
 <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js"}}</script>
 <script type="module">
 import * as THREE from 'three';
-const budget=[["OS + WebGL HUD",0.86,1.0,"Windows 11 / Three.js"],
-["Speech-to-Text",1.31,1.5,"faster-whisper small int8_float16"],
-["Gemini brain",0.0,0.05,"Cloud API · local VRAM free"],
-["Speech synthesis",0.29,0.5,"Kokoro-82M"]];
-document.getElementById('vram').innerHTML=budget.map(([n,u,b,m])=>
- `<div style="margin-bottom:12px"><div class="row"><span>${n}</span><span class="mono">${u}/${b} GB</span></div>
-  <div class="bar"><i style="width:${u/b*100}%"></i></div><div class="mono">${m}</div></div>`).join('');
+const budget=[["Conversazione","qwen3:4b","Ollama · AI locale"],["Visione","qwen3-vl:4b","Analisi immagini e schermo"],["Riconoscimento vocale","Faster-Whisper","Italiano · locale"],["Sintesi vocale","Kokoro · if_sara","Voce italiana · locale"]];
+document.getElementById('vram').innerHTML=budget.map(([n,v,m])=>
+ `<div style="margin-bottom:12px"><div class="row"><span>${n}</span><span class="mono">${v}</span></div>
+  <div class="mono">${m}</div></div>`).join('');
 
 const host=document.getElementById('orb');
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
@@ -164,12 +161,13 @@ refreshAudit(); setInterval(refreshAudit,3000);
 document.getElementById('wakeBtn').onclick=async()=>{
   try{await fetch('/api/wake',{method:'POST'});}catch(e){}
 };
+const stateNames={idle:'in attesa',listening:'in ascolto',thinking:'elaborazione',speaking:'risposta vocale',confirm:'in attesa di conferma'};
 const ws=new WebSocket(`ws://${location.host}/ws`);
 ws.onopen=()=>document.getElementById('conn').textContent='ws: live';
 ws.onclose=()=>document.getElementById('conn').textContent='ws: closed';
 ws.onmessage=e=>{const m=JSON.parse(e.data);
  if(m.channel==='level'){level=m.value;return;}
- if(m.channel==='state'){state=m.text;document.getElementById('state').textContent=m.text;
+ if(m.channel==='state'){state=m.text;document.getElementById('state').textContent=stateNames[m.text]||m.text;
    document.getElementById('confirm').style.display=m.text==='confirm'?'block':'none'; if(m.text==='confirm') startCountdown(); else clearInterval(countdownTimer); refreshAudit(); return;}
  if(m.channel==='user'){document.getElementById('user').textContent=m.text;}
  if(m.channel==='tts'){document.getElementById('assistant').textContent=m.text;}

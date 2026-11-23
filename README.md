@@ -25,6 +25,8 @@ Non creare un file `.env` e non inserire chiavi API.
 
 La memoria e l'indicizzazione dei documenti usano SQLite incluso in Python. Non serve ChromaDB, hnswlib, sentence-transformers o compilare estensioni C++ per queste funzioni. Il VAD WebRTC usa il pacchetto `webrtcvad-wheels`, con wheel precompilate per Windows.
 
+Kokoro-ONNX 0.4.9 richiede NumPy 2.0.2 o superiore; per questo progetto è fissato `numpy==2.0.2`. PyTorch e TorchAudio sono allineati alla versione 2.6.0 per lavorare con NumPy 2.
+
 ## Lingua
 
 - Faster-Whisper: lingua italiana (`it`).
